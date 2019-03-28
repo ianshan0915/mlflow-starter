@@ -5,7 +5,7 @@ conda_env: conda.yaml
 entry_points:
   main:
     parameters:
-      max_percent: {type: float, default: 0.8}
-      min_count: {type: int, default: 2}
-      num_feats: int
-    command: "python train.py {max_percent} {min_count} {num_feats}"
+      max_df: {type: float, default: 0.8}
+      min_df: {type: int, default: 2}
+      num_features: int
+    command: "python train.py {max_df} {min_df} {num_features}"
