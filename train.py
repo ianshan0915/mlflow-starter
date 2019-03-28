@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
 '''
-The data set used in this example is from http://archive.ics.uci.edu/ml/datasets/Wine+Quality
+Author: Ian Shen
+Github: ianshan0915
+Date: March 28, 2019
 
 '''
 
@@ -7,21 +10,24 @@ import os
 import warnings
 import sys
 
-import pandas as pd
+# import pandas as pd
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.metrics import accuracy_score, recall_score, f1_score
+from sklearn.datasets import fetch_20newsgroups
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import ElasticNet
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
 
 import mlflow
 import mlflow.sklearn
 
 
 def eval_metrics(actual, pred):
-    rmse = np.sqrt(mean_squared_error(actual, pred))
-    mae = mean_absolute_error(actual, pred)
-    r2 = r2_score(actual, pred)
-    return rmse, mae, r2
+    acc = accuracy_score(actual, pred)
+    rec = recall_score(actual, pred, average="weighted")
+    f1 = f1_score(actual, pred, average="weighted")
+    return acc, rec, f1
 
 
 
@@ -29,39 +35,41 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     np.random.seed(40)
 
-    # Read the wine-quality csv file (make sure you're running this from the root of MLflow!)
-    wine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-quality.csv")
-    data = pd.read_csv(wine_path)
+    # Load data from sklearn
+    categories = ['alt.atheism', 'soc.religion.christian', 'comp.graphics', 'sci.med']
+    train = fetch_20newsgroups(subset='train', categories=categories, shuffle=True, random_state=42)
+    test = fetch_20newsgroups(subset='test', categories=categories, shuffle=True, random_state=42)
 
-    # Split the data into training and test sets. (0.75, 0.25) split.
-    train, test = train_test_split(data)
 
-    # The predicted column is "quality" which is a scalar from [3, 9]
-    train_x = train.drop(["quality"], axis=1)
-    test_x = test.drop(["quality"], axis=1)
-    train_y = train[["quality"]]
-    test_y = test[["quality"]]
-
-    alpha = float(sys.argv[1]) if len(sys.argv) > 1 else 0.5
-    l1_ratio = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
+    max_percent = float(sys.argv[1]) if len(sys.argv) > 1 else 0.8
+    min_count = int(sys.argv[2]) if len(sys.argv) > 2 else 2
+    num_feats = int(sys.argv[3]) if len(sys.argv) > 3 else None
 
     with mlflow.start_run():
-        lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
-        lr.fit(train_x, train_y)
+        # NLP pipeline + prediction modeling
+        vectModel = CountVectorizer(max_df = max_percent, min_df = min_count, max_features=num_feats)
+        tfdfModel = TfidfTransformer()
+        nlp_clf = Pipeline([
+            ('vect', vectModel),
+            ('tfidf', tfdfModel),
+            ('clf', MultinomialNB()),
+        ])
+        nlp_clf.fit(train.data, train.target)
 
-        predicted_qualities = lr.predict(test_x)
+        predicted = nlp_clf.predict(test.data)
 
-        (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+        (acc, rec, f1) = eval_metrics(test.target, predicted)
 
-        print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
-        print("  RMSE: %s" % rmse)
-        print("  MAE: %s" % mae)
-        print("  R2: %s" % r2)
+        print("nlp pipeline (max_df=%f, min_df=%s):" % (max_percent, min_count))
+        print("  ACCURACY: %s" % acc)
+        print("  RECALL: %s" % rec)
+        print("  F1: %s" % f1)
 
-        mlflow.log_param("alpha", alpha)
-        mlflow.log_param("l1_ratio", l1_ratio)
-        mlflow.log_metric("rmse", rmse)
-        mlflow.log_metric("r2", r2)
-        mlflow.log_metric("mae", mae)
+        mlflow.log_param("max_df", max_percent)
+        mlflow.log_param("min_df", min_count)
+        mlflow.log_param("num_features", num_feats)
+        mlflow.log_metric("accuracy", acc)
+        mlflow.log_metric("recall", rec)
+        mlflow.log_metric("f1-score", f1)
 
-        mlflow.sklearn.log_model(lr, "model")
+        # mlflow.sklearn.log_model(lr, "model")
