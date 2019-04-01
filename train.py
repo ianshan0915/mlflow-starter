@@ -12,7 +12,7 @@ import sys
 import re
 from time import time
 
-# import pandas as pd
+import pandas as pd
 import numpy as np
 from sklearn.metrics import accuracy_score, recall_score, f1_score
 from sklearn.datasets import fetch_20newsgroups
@@ -40,11 +40,23 @@ if __name__ == "__main__":
     np.random.seed(40)
     start_time = time()
 
-    # Load data from sklearn
-    categories = ['alt.atheism', 'soc.religion.christian', 'comp.graphics', 'sci.med']
-    train = fetch_20newsgroups(subset='train', categories=categories, shuffle=True, random_state=42)
-    test = fetch_20newsgroups(subset='test', categories=categories, shuffle=True, random_state=42)
+    # # Load data from sklearn
+    # categories = ['alt.atheism', 'soc.religion.christian', 'comp.graphics', 'sci.med']
+    # train = fetch_20newsgroups(subset='train', categories=categories, shuffle=True, random_state=42)
+    # test = fetch_20newsgroups(subset='test', categories=categories, shuffle=True, random_state=42)
+    
+    # load the SparkText subset
+    data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "spark-test.csv")
+    # data_path = "/Users/ianshen/Downloads/SparkText_SampleDataset_29437Fulltexts.csv"
+    data = pd.read_csv(data_path, sep=" ", encoding = "cp1252")
 
+    # Split the data into training and test sets. (0.75, 0.25) split.
+    train, test = train_test_split(data)
+
+    train_x = train['text']
+    test_x = test['text']
+    train_y = train["code"]
+    test_y = test["code"]    
 
     max_percent = float(sys.argv[1]) if len(sys.argv) > 1 else 0.8
     min_count = int(sys.argv[2]) if len(sys.argv) > 2 else 2
@@ -60,8 +72,8 @@ if __name__ == "__main__":
 
     with mlflow.start_run():
         # NLP pipeline + prediction modeling
-        vectModel = CountVectorizer(max_df = max_percent, 
-                                    min_df = min_count, 
+        vectModel = CountVectorizer(max_df = max_percent,
+                                    min_df = min_count,
                                     max_features=num_feats,
                                     tokenizer = tokenizer,
                                     ngram_range=(1,2),
@@ -75,15 +87,15 @@ if __name__ == "__main__":
                                 alpha=1e-3, random_state=42,
                                 max_iter=5, tol=None)),
         ])
-        nlp_clf.fit(train.data, train.target)
+        nlp_clf.fit(train_x, train_y)
         training_time = time() - start_time
 
         vect_features = ",".join(nlp_clf.named_steps["vect"].get_feature_names())
         stop_words = ",".join(nlp_clf.named_steps["vect"].get_stop_words())
 
-        predicted = nlp_clf.predict(test.data)
+        predicted = nlp_clf.predict(test_x)
 
-        (acc, rec, f1) = eval_metrics(test.target, predicted)
+        (acc, rec, f1) = eval_metrics(test_y, predicted)
 
         print("feature names: %s" % vect_features)
         print("stop words: %s" % stop_words)
@@ -103,4 +115,4 @@ if __name__ == "__main__":
         mlflow.log_metric("recall", rec)
         mlflow.log_metric("f1-score", f1)
 
-        # mlflow.sklearn.log_model(lr, "model")
+        mlflow.sklearn.log_model(nlp_clf, "model")
