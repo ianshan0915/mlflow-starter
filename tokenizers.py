@@ -8,7 +8,7 @@ This is an NLP pipeline based on SpaCy, the pipeline will be used as tokenizer f
 '''
 
 import spacy
-# spacy.load('en_core_web_sm')
+spacy.load('en')
 
 lemmatizer = spacy.lang.en.English()
 

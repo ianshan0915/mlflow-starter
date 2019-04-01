@@ -22,7 +22,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer, H
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import Pipeline
-from tokenizers import spacy_tokenizer, LemmaTokenizer
+# from tokenizers import spacy_tokenizer, LemmaTokenizer
 
 import mlflow
 import mlflow.sklearn
@@ -63,19 +63,19 @@ if __name__ == "__main__":
     num_feats = int(sys.argv[3]) if len(sys.argv) > 3 else None
     nlp_type = sys.argv[4] if len(sys.argv) > 4 else "sklearn"
 
-    if nlp_type =='nltk':
-        tokenizer = LemmaTokenizer()
-    elif nlp_type =='spacy':
-        tokenizer = spacy_tokenizer
-    else:
-        tokenizer = None
+    # if nlp_type =='nltk':
+    #     tokenizer = LemmaTokenizer()
+    # elif nlp_type =='spacy':
+    #     tokenizer = spacy_tokenizer
+    # else:
+    #     tokenizer = None
 
     with mlflow.start_run():
         # NLP pipeline + prediction modeling
         vectModel = CountVectorizer(max_df = max_percent,
                                     min_df = min_count,
                                     max_features=num_feats,
-                                    tokenizer = tokenizer,
+                                    # tokenizer = tokenizer,
                                     ngram_range=(1,2),
                                     stop_words="english")
         tfdfModel = TfidfTransformer()
